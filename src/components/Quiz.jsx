@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { useState } from "react";
 import { useParams } from "react-router-dom";
 import Cookies from "js-cookie"; // Import js-cookie
@@ -9,10 +9,10 @@ export const Quiz = () => {
   const [selectedAnswers, setSelectedAnswers] = useState([]);
   const [showResult, setShowResult] = useState(false);
   const [score, setScore] = useState(0);
+  
   // Extract userId from token
   const authToken = Cookies.get("authToken");
-  const userId = jwtDecode(authToken).userId
-  // console.log(userId)
+  const userId = jwtDecode(authToken).userId;
 
   // Fetch quiz data using React Query
   const { isLoading, data } = useQuery({
@@ -20,6 +20,29 @@ export const Quiz = () => {
     queryFn: () =>
       fetch(`https://backend-vecros-1.onrender.com/getQuiz?id=${id}&userId=${userId}`).then((res) => res.json()),
     enabled: !!userId, // Ensure query runs only if userId is available
+  });
+
+  // Set up mutation for submitting answers
+  const mutation = useMutation({
+    mutationFn: ({ userId, questionId, selectedAnswer }) => {
+      return fetch("https://backend-vecros-1.onrender.com/userAns", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          userId,
+          questionId,
+          selectedAnswer,
+        }),
+      }).then((response) => response.json());
+    },
+    onSuccess: (data) => {
+      console.log("Answer submitted successfully:", data);
+    },
+    onError: (error) => {
+      console.error("Error submitting answer:", error);
+    },
   });
 
   if (isLoading) {
@@ -47,34 +70,21 @@ export const Quiz = () => {
       setScore(score + 1);
     }
 
-    // Send the answer to the backend
+    // Send the answer to the backend using mutation
     const questionId = questions[questionIndex].id;
-    fetch("https://backend-vecros-1.onrender.com/userAns", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        userId,
-        questionId,
-        selectedAnswer: optionKey,
-      }),
-    })
-      .then((response) => response.json())
-      .then((data) => {
-        console.log("Answer submitted successfully:", data);
-      })
-      .catch((error) => {
-        console.error("Error submitting answer:", error);
-      });
+    mutation.mutate({
+      userId,
+      questionId,
+      selectedAnswer: optionKey,
+    });
   };
 
   const handleSubmit = () => {
-    setScore(score + data.score)
+    setScore(score + data.score);
     setShowResult(true);
   };
-  const progress = (selectedAnswers.length + data.totalAttemptedQuestions / questions.length) * 100;
-  console.log(progress)
+
+  const progress = ((selectedAnswers.length + data.totalAttemptedQuestions) / questions.length) * 100;
 
   if (showResult || data.totalAttemptedQuestions === questions.length) {
     return (
@@ -92,8 +102,8 @@ export const Quiz = () => {
       <h1 className="text-3xl font-bold text-center mb-6">{quiz?.name || "Quiz"}</h1>
       <div className="space-y-6">
         {questions.map((currentQuestion, questionIndex) => {
-          const userChosenAnswer = currentQuestion.chooseAns; // The answer chosen by the user
-          const correctAnswer = currentQuestion.correctOption; // The correct answer for the question
+          const userChosenAnswer = currentQuestion.chooseAns;
+          const correctAnswer = currentQuestion.correctOption;
           if (userChosenAnswer !== null) {
             return (
               <div key={currentQuestion.id} className="mb-8">
@@ -101,27 +111,21 @@ export const Quiz = () => {
                 <div className="space-y-4">
                   {["optionA", "optionB", "optionC", "optionD"].map((optionKey, index) => {
                     const optionText = currentQuestion[optionKey];
-
-                    // Determine the background color
-                    let bgColor = "bg-gray-100 hover:bg-gray-200"; // Default
-
+                    let bgColor = "bg-gray-100 hover:bg-gray-200";
                     if (userChosenAnswer) {
                       if (optionKey === correctAnswer) {
-                        bgColor = "bg-green-500 text-white"; // Correct answer
+                        bgColor = "bg-green-500 text-white";
                       } else if (optionKey === userChosenAnswer && optionKey !== correctAnswer) {
-                        bgColor = "bg-red-500 text-white"; // Wrong answer chosen by user
+                        bgColor = "bg-red-500 text-white";
                       } else {
-                        bgColor = "bg-gray-200"; // Unselected options
+                        bgColor = "bg-gray-200";
                       }
                     }
                     return (
                       <div
                         key={index}
-                        onClick={() =>
-                          !userChosenAnswer && handleOptionClick(questionIndex, optionKey)
-                        }
-                        className={`p-4 rounded-md cursor-pointer ${userChosenAnswer ? "cursor-not-allowed" : ""
-                          } ${bgColor}`}
+                        onClick={() => !userChosenAnswer && handleOptionClick(questionIndex, optionKey)}
+                        className={`p-4 rounded-md cursor-pointer ${userChosenAnswer ? "cursor-not-allowed" : ""} ${bgColor}`}
                       >
                         {optionText}
                       </div>
@@ -137,34 +141,21 @@ export const Quiz = () => {
                 <div className="space-y-4">
                   {["optionA", "optionB", "optionC", "optionD"].map((optionKey, index) => {
                     const optionText = currentQuestion[optionKey];
-                    const isCorrect = optionKey === correctAnswer; // Check if the option is correct
-                    const isSelected =
-                      selectedAnswers[questionIndex]?.selectedOption === optionKey; // Check if this option is selected
-
-                    // Default background color for unselected options
+                    const isCorrect = optionKey === correctAnswer;
+                    const isSelected = selectedAnswers[questionIndex]?.selectedOption === optionKey;
                     let bgColor = "bg-gray-100 hover:bg-gray-200";
-
                     if (isSelected) {
-                      // If the option is selected and it's the correct answer, apply green
-                      bgColor = isCorrect
-                        ? "bg-green-500 text-white" // Correct answer
-                        : "bg-red-500 text-white"; // Wrong answer
+                      bgColor = isCorrect ? "bg-green-500 text-white" : "bg-red-500 text-white";
                     }
-                   
-
-
-                    // If the answer is not selected and the question has been answered, show the correct answer
                     if (!isSelected && currentQuestion.chooseAns !== null) {
-                      bgColor = isCorrect ? "bg-green-500 text-white" : bgColor; // Correct answer in green
+                      bgColor = isCorrect ? "bg-green-500 text-white" : bgColor;
                     }
-
-
                     return (
                       <div
                         key={index}
                         onClick={() => {
                           if (!selectedAnswers[questionIndex]?.selectedOption) {
-                            handleOptionClick(questionIndex, optionKey); // Allow selection if not already selected
+                            handleOptionClick(questionIndex, optionKey);
                           }
                         }}
                         className={`p-4 rounded-md cursor-pointer ${isSelected ? "" : "hover:bg-gray-200"} ${bgColor}`}
@@ -189,15 +180,11 @@ export const Quiz = () => {
         <button
           onClick={handleSubmit}
           disabled={selectedAnswers.length < questions.length}
-          className={`px-6 py-3 text-lg font-bold text-white rounded-md ${selectedAnswers.length < questions.length
-            ? "bg-gray-400 cursor-not-allowed"
-            : "bg-blue-500 hover:bg-blue-600"
-            }`}
+          className={`px-6 py-3 text-lg font-bold text-white rounded-md ${selectedAnswers.length < questions.length ? "bg-gray-400 cursor-not-allowed" : "bg-blue-500 hover:bg-blue-600"}`}
         >
           Submit Quiz
         </button>
       </div>
     </div>
   );
-
 };
