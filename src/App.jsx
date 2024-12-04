@@ -3,7 +3,7 @@ import Home from "./components/Home";
 import { Quiz } from "./components/Quiz";
 import SignIn from "./components/signIn";
 import SignupForm from "./components/signUp";
-import Admin from "./components/admin";
+import Admin from "./components/Admin";
 
 
 export default function App() {
