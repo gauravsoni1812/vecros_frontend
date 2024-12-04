@@ -9,7 +9,6 @@ export const Quiz = () => {
   const [selectedAnswers, setSelectedAnswers] = useState([]);
   const [showResult, setShowResult] = useState(false);
   const [score, setScore] = useState(0);
-
   // Extract userId from token
   const authToken = Cookies.get("authToken");
   const userId = jwtDecode(authToken).userId
@@ -74,7 +73,7 @@ export const Quiz = () => {
     setScore(score + data.score)
     setShowResult(true);
   };
-  const progress = (selectedAnswers.length / questions.length) * 100;
+  const progress = (selectedAnswers.length + data.totalAttemptedQuestions / questions.length) * 100;
   console.log(progress)
 
   if (showResult || data.totalAttemptedQuestions === questions.length) {
@@ -115,7 +114,6 @@ export const Quiz = () => {
                         bgColor = "bg-gray-200"; // Unselected options
                       }
                     }
-
                     return (
                       <div
                         key={index}
@@ -152,11 +150,14 @@ export const Quiz = () => {
                         ? "bg-green-500 text-white" // Correct answer
                         : "bg-red-500 text-white"; // Wrong answer
                     }
+                   
+
 
                     // If the answer is not selected and the question has been answered, show the correct answer
                     if (!isSelected && currentQuestion.chooseAns !== null) {
                       bgColor = isCorrect ? "bg-green-500 text-white" : bgColor; // Correct answer in green
                     }
+
 
                     return (
                       <div
